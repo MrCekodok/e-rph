@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { dskpExtractSchema } from "@/lib/dskp/schema";
 import { sahkanMaklumatDskp } from "@/lib/dskp/maklumat";
 import { simpanDskp } from "@/lib/dskp/save";
-import { isSupabaseConfigured } from "@/lib/supabase/admin";
 import type { DskpExtract } from "@/lib/dskp/types";
 
 export const runtime = "nodejs";
@@ -11,13 +10,6 @@ export const maxDuration = 60;
 const MAX_BYTES = 15 * 1024 * 1024;
 
 export async function POST(request: Request) {
-  if (!isSupabaseConfigured()) {
-    return NextResponse.json(
-      { ralat: "Supabase belum dikonfigurasi. Isi .env.local dan jalankan supabase/schema.sql." },
-      { status: 503 }
-    );
-  }
-
   try {
     const form = await request.formData();
     const file = form.get("file");

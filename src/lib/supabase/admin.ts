@@ -1,9 +1,12 @@
 import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
-function applyEnvFile(filePath: string) {
-  if (!existsSync(filePath)) return;
+type EnvMap = Record<string, string>;
+
+function parseEnvFile(filePath: string): EnvMap {
+  if (!existsSync(filePath)) return {};
+  const env: EnvMap = {};
   for (const line of readFileSync(filePath, "utf8").split(/\r?\n/)) {
     const trimmed = line.trim();
     if (!trimmed || trimmed.startsWith("#")) continue;
@@ -17,29 +20,35 @@ function applyEnvFile(filePath: string) {
     ) {
       value = value.slice(1, -1);
     }
-    const current = process.env[key];
-    if (current === undefined || current.trim() === "") {
-      process.env[key] = value;
-    }
+    env[key] = value;
   }
+  return env;
 }
 
-function ensureLocalEnv() {
+function fileEnv(): EnvMap {
   const cwd = process.cwd();
-  applyEnvFile(join(cwd, ".env.local"));
-  applyEnvFile(join(cwd, "e-rph", ".env.local"));
+  const files = [
+    join(cwd, ".env.local"),
+    join(cwd, "e-rph", ".env.local"),
+    join(dirname(process.cwd()), "e-rph", ".env.local"),
+    "/Users/suhaili/e-rph/.env.local",
+  ];
+  return files.reduce<EnvMap>((all, file) => ({ ...all, ...parseEnvFile(file) }), {});
+}
+
+function envValue(key: string) {
+  const fromFile = fileEnv()[key]?.trim();
+  if (fromFile) return fromFile;
+  const dynamic = process.env[key];
+  return typeof dynamic === "string" ? dynamic.trim() : "";
 }
 
 function supabaseUrl() {
-  ensureLocalEnv();
-  return process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() || "";
+  return envValue("NEXT_PUBLIC_SUPABASE_URL");
 }
 
 function supabaseKey() {
-  ensureLocalEnv();
-  const serviceRole = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
-  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
-  return serviceRole || anon || "";
+  return envValue("SUPABASE_SERVICE_ROLE_KEY") || envValue("NEXT_PUBLIC_SUPABASE_ANON_KEY");
 }
 
 export function isSupabaseConfigured() {

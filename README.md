@@ -19,3 +19,11 @@ npm run dev
 4. (Pilihan) Isi `GOOGLE_GENERATIVE_AI_API_KEY` atau `OPENAI_API_KEY` untuk analisis AI.
 
 Buka [http://localhost:3000](http://localhost:3000), kemudian muat naik PDF DSKP.
+
+## GitHub dan Supabase
+
+- Kod: https://github.com/MrCekodok/e-rph
+- Projek Supabase: https://supabase.com/dashboard/project/dtfxxqjdoftcyovvhdte
+- Rujukan projek: `dtfxxqjdoftcyovvhdte` (`supabase/config.toml`)
+
+Kunci API tidak masuk ke GitHub sebagai fail. Ia disimpan sebagai GitHub Secrets (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`) supaya Actions boleh menghubungi pangkalan data.
