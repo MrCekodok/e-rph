@@ -1,0 +1,172 @@
+"use client";
+
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { FileUp, Loader2 } from "lucide-react";
+import { toast } from "sonner";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { DskpTree } from "@/components/dskp-tree";
+import type { DskpExtract } from "@/lib/dskp/types";
+
+type Ringkasan = { bilBidang: number; bilSk: number; bilSp: number };
+
+export function UploadDskp({ supabaseSedia }: { supabaseSedia: boolean }) {
+  const router = useRouter();
+  const [fail, setFail] = useState<File | null>(null);
+  const [extract, setExtract] = useState<DskpExtract | null>(null);
+  const [ringkasan, setRingkasan] = useState<Ringkasan | null>(null);
+  const [jumlahMukaSurat, setJumlahMukaSurat] = useState<number | null>(null);
+  const [sedangAnalisis, setSedangAnalisis] = useState(false);
+  const [sedangSimpan, setSedangSimpan] = useState(false);
+  const [seret, setSeret] = useState(false);
+
+  async function analisis() {
+    if (!fail) return;
+    setSedangAnalisis(true);
+    setExtract(null);
+    try {
+      const form = new FormData();
+      form.append("file", fail);
+      const res = await fetch("/api/dskp/analyze", { method: "POST", body: form });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.ralat ?? "Analisis gagal.");
+      setExtract(json.extract);
+      setRingkasan(json.ringkasan);
+      setJumlahMukaSurat(json.jumlahMukaSurat);
+      toast.success("PDF DSKP berjaya dianalisis.");
+      if (json.extract?.amaran) toast.warning(json.extract.amaran);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Analisis gagal.");
+    } finally {
+      setSedangAnalisis(false);
+    }
+  }
+
+  async function simpan() {
+    if (!fail || !extract) return;
+    setSedangSimpan(true);
+    try {
+      const form = new FormData();
+      form.append("file", fail);
+      form.append("payload", JSON.stringify(extract));
+      const res = await fetch("/api/dskp/save", { method: "POST", body: form });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.ralat ?? "Gagal menyimpan.");
+      toast.success("DSKP disimpan ke Supabase.");
+      router.push(`/dskp/${json.id}`);
+      router.refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Gagal menyimpan.");
+    } finally {
+      setSedangSimpan(false);
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      {!supabaseSedia ? (
+        <Alert>
+          <AlertTitle>Supabase belum disambung</AlertTitle>
+          <AlertDescription>
+            Anda masih boleh menganalisis PDF. Untuk menyimpan ke jadual, isi{" "}
+            <code className="rounded bg-muted px-1 py-0.5 text-xs">.env.local</code> dan jalankan{" "}
+            <code className="rounded bg-muted px-1 py-0.5 text-xs">supabase/schema.sql</code>.
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Muat naik DSKP</CardTitle>
+          <CardDescription>
+            Fail PDF DSKP KSSM akan dibaca, kemudian disusun kepada Bidang Pembelajaran, Standard
+            Kandungan, dan Standard Pembelajaran.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <label
+            onDragOver={(event) => {
+              event.preventDefault();
+              setSeret(true);
+            }}
+            onDragLeave={() => setSeret(false)}
+            onDrop={(event) => {
+              event.preventDefault();
+              setSeret(false);
+              const dropped = event.dataTransfer.files[0];
+              if (dropped) {
+                setFail(dropped);
+                setExtract(null);
+              }
+            }}
+            className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed px-6 py-10 text-center transition-colors ${
+              seret ? "border-primary bg-muted" : "border-border hover:bg-muted/40"
+            }`}
+          >
+            <FileUp className="mb-3 size-8 text-muted-foreground" />
+            <p className="text-sm font-medium">Letak PDF di sini atau pilih fail</p>
+            <p className="mt-1 text-xs text-muted-foreground">Maksimum 15 MB</p>
+            <input
+              type="file"
+              accept="application/pdf"
+              className="sr-only"
+              onChange={(event) => {
+                const next = event.target.files?.[0] ?? null;
+                setFail(next);
+                setExtract(null);
+              }}
+            />
+          </label>
+          {fail ? (
+            <p className="text-sm text-muted-foreground">
+              Dipilih: <span className="font-medium text-foreground">{fail.name}</span>
+            </p>
+          ) : null}
+          <Button onClick={analisis} disabled={!fail || sedangAnalisis}>
+            {sedangAnalisis ? <Loader2 className="animate-spin" /> : null}
+            {sedangAnalisis ? "Menganalisis..." : "Analisis PDF"}
+          </Button>
+        </CardContent>
+      </Card>
+
+      {extract && ringkasan ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Semakan sebelum simpan</CardTitle>
+            <CardDescription>
+              {extract.mata_pelajaran} · {extract.tingkatan}
+              {extract.tahun_terbitan ? ` · ${extract.tahun_terbitan}` : ""}
+              {jumlahMukaSurat ? ` · ${jumlahMukaSurat} muka surat` : ""}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-3 gap-3 text-center">
+              <div className="rounded-lg bg-muted px-3 py-3">
+                <p className="text-2xl font-semibold">{ringkasan.bilBidang}</p>
+                <p className="text-xs text-muted-foreground">Bidang pembelajaran</p>
+              </div>
+              <div className="rounded-lg bg-muted px-3 py-3">
+                <p className="text-2xl font-semibold">{ringkasan.bilSk}</p>
+                <p className="text-xs text-muted-foreground">Standard kandungan</p>
+              </div>
+              <div className="rounded-lg bg-muted px-3 py-3">
+                <p className="text-2xl font-semibold">{ringkasan.bilSp}</p>
+                <p className="text-xs text-muted-foreground">Standard pembelajaran</p>
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Kaedah: {extract.kaedah_analisis === "ai" ? "Analisis AI" : "Parser DSKP"}
+            </p>
+            <DskpTree bidang={extract.bidang} />
+            <Button onClick={simpan} disabled={!supabaseSedia || sedangSimpan}>
+              {sedangSimpan ? <Loader2 className="animate-spin" /> : null}
+              Simpan ke Supabase
+            </Button>
+          </CardContent>
+        </Card>
+      ) : null}
+    </div>
+  );
+}
