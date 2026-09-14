@@ -12,6 +12,8 @@ export async function simpanDskp(params: {
   extract: DskpExtract;
   namaFail: string;
   pdfBytes: Uint8Array;
+  mataPelajaran: string;
+  tingkatan: string;
 }) {
   const supabase = createAdminClient();
   const failHash = hashFail(params.pdfBytes);
@@ -30,8 +32,8 @@ export async function simpanDskp(params: {
 
   const payload = {
     nama_fail: params.namaFail,
-    mata_pelajaran: params.extract.mata_pelajaran,
-    tingkatan: params.extract.tingkatan,
+    mata_pelajaran: params.mataPelajaran,
+    tingkatan: params.tingkatan,
     tahun_terbitan: params.extract.tahun_terbitan,
     storage_path: storagePath,
     fail_hash: failHash,

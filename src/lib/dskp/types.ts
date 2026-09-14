@@ -30,6 +30,7 @@ export type DskpExtract = {
 export type DokumenDskp = {
   id: string;
   nama_fail: string;
+  mata_pelajaran_id: string | null;
   mata_pelajaran: string | null;
   tingkatan: string | null;
   tahun_terbitan: string | null;

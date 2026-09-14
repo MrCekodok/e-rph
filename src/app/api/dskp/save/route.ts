@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { dskpExtractSchema } from "@/lib/dskp/schema";
+import { sahkanMaklumatDskp } from "@/lib/dskp/maklumat";
 import { simpanDskp } from "@/lib/dskp/save";
 import { isSupabaseConfigured } from "@/lib/supabase/admin";
 import type { DskpExtract } from "@/lib/dskp/types";
@@ -21,6 +22,13 @@ export async function POST(request: Request) {
     const form = await request.formData();
     const file = form.get("file");
     const payloadRaw = form.get("payload");
+    const maklumat = sahkanMaklumatDskp(
+      typeof form.get("mata_pelajaran") === "string" ? String(form.get("mata_pelajaran")) : "",
+      typeof form.get("tingkatan") === "string" ? String(form.get("tingkatan")) : ""
+    );
+    if ("ralat" in maklumat) {
+      return NextResponse.json({ ralat: maklumat.ralat }, { status: 400 });
+    }
     if (!(file instanceof File) || typeof payloadRaw !== "string") {
       return NextResponse.json({ ralat: "Fail dan hasil analisis diperlukan." }, { status: 400 });
     }
@@ -32,6 +40,8 @@ export async function POST(request: Request) {
     const extractParsed = dskpExtractSchema.parse(parsedJson);
     const extract: DskpExtract = {
       ...extractParsed,
+      mata_pelajaran: maklumat.nama,
+      tingkatan: maklumat.tahap,
       kaedah_analisis: parsedJson.kaedah_analisis === "ai" ? "ai" : "parser",
       amaran: parsedJson.amaran,
     };
@@ -41,6 +51,8 @@ export async function POST(request: Request) {
       extract,
       namaFail: file.name,
       pdfBytes,
+      mataPelajaran: maklumat.nama,
+      tingkatan: maklumat.tahap,
     });
 
     return NextResponse.json({ id: result.id });

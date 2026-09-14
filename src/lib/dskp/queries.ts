@@ -35,6 +35,7 @@ export async function senaraiDokumen(): Promise<DokumenRingkas[]> {
     return {
       id: row.id,
       nama_fail: row.nama_fail,
+      mata_pelajaran_id: row.mata_pelajaran_id ?? null,
       mata_pelajaran: row.mata_pelajaran,
       tingkatan: row.tingkatan,
       tahun_terbitan: row.tahun_terbitan,

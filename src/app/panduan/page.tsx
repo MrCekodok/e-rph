@@ -12,6 +12,11 @@ export default function PanduanPage() {
         <h2 className="font-heading text-lg font-medium">Apa yang disimpan</h2>
         <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
           <li>
+            <strong className="text-foreground">Mata pelajaran</strong> dan{" "}
+            <strong className="text-foreground">tingkatan</strong> — dimasukkan semasa muat naik, disimpan
+            dalam jadual <code className="rounded bg-muted px-1 py-0.5 text-xs">mata_pelajaran</code>
+          </li>
+          <li>
             <strong className="text-foreground">Bidang pembelajaran</strong> — contohnya Pengaturcaraan,
             Pangkalan Data
           </li>

@@ -1,13 +1,16 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { FileUp, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { DskpTree } from "@/components/dskp-tree";
+import { TINGKATAN, sahkanMaklumatDskp } from "@/lib/dskp/maklumat";
 import type { DskpExtract } from "@/lib/dskp/types";
 
 type Ringkasan = { bilBidang: number; bilSk: number; bilSp: number };
@@ -15,6 +18,9 @@ type Ringkasan = { bilBidang: number; bilSk: number; bilSp: number };
 export function UploadDskp({ supabaseSedia }: { supabaseSedia: boolean }) {
   const router = useRouter();
   const [fail, setFail] = useState<File | null>(null);
+  const [mataPelajaran, setMataPelajaran] = useState("");
+  const [tingkatan, setTingkatan] = useState("");
+  const [senaraiMp, setSenaraiMp] = useState<string[]>([]);
   const [extract, setExtract] = useState<DskpExtract | null>(null);
   const [ringkasan, setRingkasan] = useState<Ringkasan | null>(null);
   const [jumlahMukaSurat, setJumlahMukaSurat] = useState<number | null>(null);
@@ -22,8 +28,33 @@ export function UploadDskp({ supabaseSedia }: { supabaseSedia: boolean }) {
   const [sedangSimpan, setSedangSimpan] = useState(false);
   const [seret, setSeret] = useState(false);
 
+  const maklumat = sahkanMaklumatDskp(mataPelajaran, tingkatan);
+  const maklumatLengkap = !("ralat" in maklumat);
+
+  useEffect(() => {
+    let aktif = true;
+    fetch("/api/mata-pelajaran")
+      .then((res) => res.json())
+      .then((json) => {
+        if (!aktif || !Array.isArray(json.mata_pelajaran)) return;
+        setSenaraiMp(
+          json.mata_pelajaran
+            .map((item: { nama?: string }) => item.nama)
+            .filter((nama: string | undefined): nama is string => Boolean(nama))
+        );
+      })
+      .catch(() => undefined);
+    return () => {
+      aktif = false;
+    };
+  }, []);
+
   async function analisis() {
     if (!fail) return;
+    if ("ralat" in maklumat) {
+      toast.error(maklumat.ralat);
+      return;
+    }
     setSedangAnalisis(true);
     setExtract(null);
     try {
@@ -32,7 +63,11 @@ export function UploadDskp({ supabaseSedia }: { supabaseSedia: boolean }) {
       const res = await fetch("/api/dskp/analyze", { method: "POST", body: form });
       const json = await res.json();
       if (!res.ok) throw new Error(json.ralat ?? "Analisis gagal.");
-      setExtract(json.extract);
+      setExtract({
+        ...json.extract,
+        mata_pelajaran: maklumat.nama,
+        tingkatan: maklumat.tahap,
+      });
       setRingkasan(json.ringkasan);
       setJumlahMukaSurat(json.jumlahMukaSurat);
       toast.success("PDF DSKP berjaya dianalisis.");
@@ -46,11 +81,24 @@ export function UploadDskp({ supabaseSedia }: { supabaseSedia: boolean }) {
 
   async function simpan() {
     if (!fail || !extract) return;
+    if ("ralat" in maklumat) {
+      toast.error(maklumat.ralat);
+      return;
+    }
     setSedangSimpan(true);
     try {
       const form = new FormData();
       form.append("file", fail);
-      form.append("payload", JSON.stringify(extract));
+      form.append("mata_pelajaran", maklumat.nama);
+      form.append("tingkatan", maklumat.tahap);
+      form.append(
+        "payload",
+        JSON.stringify({
+          ...extract,
+          mata_pelajaran: maklumat.nama,
+          tingkatan: maklumat.tahap,
+        })
+      );
       const res = await fetch("/api/dskp/save", { method: "POST", body: form });
       const json = await res.json();
       if (!res.ok) throw new Error(json.ralat ?? "Gagal menyimpan.");
@@ -81,11 +129,48 @@ export function UploadDskp({ supabaseSedia }: { supabaseSedia: boolean }) {
         <CardHeader>
           <CardTitle>Muat naik DSKP</CardTitle>
           <CardDescription>
-            Fail PDF DSKP KSSM akan dibaca, kemudian disusun kepada Bidang Pembelajaran, Standard
-            Kandungan, dan Standard Pembelajaran.
+            Isi mata pelajaran dan tingkatan dahulu. PDF kemudian disusun kepada Bidang Pembelajaran,
+            Standard Kandungan, dan Standard Pembelajaran.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="mata-pelajaran">Mata pelajaran</Label>
+              <Input
+                id="mata-pelajaran"
+                list="senarai-mata-pelajaran"
+                required
+                value={mataPelajaran}
+                onChange={(event) => setMataPelajaran(event.target.value)}
+                placeholder="cth. Sains Komputer"
+                autoComplete="off"
+              />
+              <datalist id="senarai-mata-pelajaran">
+                {senaraiMp.map((nama) => (
+                  <option key={nama} value={nama} />
+                ))}
+              </datalist>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="tingkatan">Tingkatan</Label>
+              <select
+                id="tingkatan"
+                required
+                value={tingkatan}
+                onChange={(event) => setTingkatan(event.target.value)}
+                className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+              >
+                <option value="">Pilih tingkatan</option>
+                {TINGKATAN.map((tahap) => (
+                  <option key={tahap} value={tahap}>
+                    {tahap}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
           <label
             onDragOver={(event) => {
               event.preventDefault();
@@ -124,7 +209,7 @@ export function UploadDskp({ supabaseSedia }: { supabaseSedia: boolean }) {
               Dipilih: <span className="font-medium text-foreground">{fail.name}</span>
             </p>
           ) : null}
-          <Button onClick={analisis} disabled={!fail || sedangAnalisis}>
+          <Button onClick={analisis} disabled={!fail || !maklumatLengkap || sedangAnalisis}>
             {sedangAnalisis ? <Loader2 className="animate-spin" /> : null}
             {sedangAnalisis ? "Menganalisis..." : "Analisis PDF"}
           </Button>
@@ -136,7 +221,7 @@ export function UploadDskp({ supabaseSedia }: { supabaseSedia: boolean }) {
           <CardHeader>
             <CardTitle>Semakan sebelum simpan</CardTitle>
             <CardDescription>
-              {extract.mata_pelajaran} · {extract.tingkatan}
+              {mataPelajaran} · {tingkatan}
               {extract.tahun_terbitan ? ` · ${extract.tahun_terbitan}` : ""}
               {jumlahMukaSurat ? ` · ${jumlahMukaSurat} muka surat` : ""}
             </CardDescription>
@@ -160,7 +245,7 @@ export function UploadDskp({ supabaseSedia }: { supabaseSedia: boolean }) {
               Kaedah: {extract.kaedah_analisis === "ai" ? "Analisis AI" : "Parser DSKP"}
             </p>
             <DskpTree bidang={extract.bidang} />
-            <Button onClick={simpan} disabled={!supabaseSedia || sedangSimpan}>
+            <Button onClick={simpan} disabled={!supabaseSedia || !maklumatLengkap || sedangSimpan}>
               {sedangSimpan ? <Loader2 className="animate-spin" /> : null}
               Simpan ke Supabase
             </Button>
