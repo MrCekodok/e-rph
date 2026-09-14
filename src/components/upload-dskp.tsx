@@ -245,10 +245,21 @@ export function UploadDskp({ supabaseSedia }: { supabaseSedia: boolean }) {
               Kaedah: {extract.kaedah_analisis === "ai" ? "Analisis AI" : "Parser DSKP"}
             </p>
             <DskpTree bidang={extract.bidang} />
-            <Button onClick={simpan} disabled={!supabaseSedia || !maklumatLengkap || sedangSimpan}>
-              {sedangSimpan ? <Loader2 className="animate-spin" /> : null}
-              Simpan ke Supabase
-            </Button>
+            <div className="space-y-2">
+              <Button onClick={simpan} disabled={!maklumatLengkap || sedangSimpan}>
+                {sedangSimpan ? <Loader2 className="animate-spin" /> : null}
+                Simpan ke Supabase
+              </Button>
+              {!maklumatLengkap ? (
+                <p className="text-sm text-destructive">Isi mata pelajaran dan tingkatan di atas sebelum simpan.</p>
+              ) : null}
+              {!supabaseSedia ? (
+                <p className="text-sm text-muted-foreground">
+                  Jika simpan gagal, jalankan <code className="rounded bg-muted px-1 py-0.5 text-xs">supabase/schema.sql</code>{" "}
+                  dan mulakan semula <code className="rounded bg-muted px-1 py-0.5 text-xs">npm run dev</code>.
+                </p>
+              ) : null}
+            </div>
           </CardContent>
         </Card>
       ) : null}

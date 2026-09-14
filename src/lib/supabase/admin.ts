@@ -5,7 +5,9 @@ export function isSupabaseConfigured() {
 }
 
 function supabaseKey() {
-  return process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+  const serviceRole = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
+  return serviceRole || anon || "";
 }
 
 export function createAdminClient(): SupabaseClient {
